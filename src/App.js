@@ -9,7 +9,7 @@ class App extends Component {
     }
 
     handleGenerateMeme() {
-        this.setState({ generatedMeme: <div>hi</div> } )
+        this.setState({ generatedMeme: <Meme/> } )
     }
 
     handleReset() {
@@ -23,10 +23,10 @@ class App extends Component {
                     <h1>Generate a Weather Meme</h1>
                     <p>Enter a zip-code</p>
                     <input type="text" className="ZipBox"  pattern="[0-9][0-9][0-9][0-9][0-9]"/>
-                    <button className="Button" onClick={this.handleGenerateMeme}>Generate!</button>
+                    <button className="Button" onClick={() => this.handleGenerateMeme()}>Generate!</button>
                 </div>
                 <div className="Presenter">
-                    {this.state.generatedMeme && <button className="Button" onClick={this.handleReset}>reset!</button>}
+                    {this.state.generatedMeme && <button className="Button" onClick={() => this.handleReset()}>reset!</button>}
                 </div>
                 <footer className="Footer">
                     <a  className="Link" href="https://darksky.net/poweredby/">Powered by Dark Sky</a>
