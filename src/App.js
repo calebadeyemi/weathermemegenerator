@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import './App.css';
-import Meme from './Meme';
+// import Meme from './Meme';
 
 class App extends Component {
     constructor(props) {
@@ -8,12 +8,13 @@ class App extends Component {
         this.state = { generatedMeme: null, zipcode: null }
     }
 
-    handleGenerateMeme() {
-        this.setState({ generatedMeme: <Meme/> } )
+    async handleGenerateMeme() {
+        const {data: image} = await fetch('/api').then(r => r.json());
+	this.setState({image}); 
     }
 
     handleReset() {
-        this.setState({ generatedMeme: null, zipcode: null })
+        this.setState({ image: null, zipcode: null })
     }
 
     render() {
@@ -26,7 +27,15 @@ class App extends Component {
                     <button className="Button" onClick={() => this.handleGenerateMeme()}>Generate!</button>
                 </div>
                 <div className="Presenter">
-                    {this.state.generatedMeme && <button className="Button" onClick={() => this.handleReset()}>reset!</button>}
+         {
+	this.state.image && 
+	<div>
+		<img src={this.state.image} />
+		<button className="Button"
+			onClick={() => this.handleReset()}>reset!
+		</button>
+	</div>
+	}
                 </div>
                 <footer className="Footer">
                     <a  className="Link" href="https://darksky.net/poweredby/">Powered by Dark Sky</a>
