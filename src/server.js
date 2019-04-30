@@ -1,41 +1,68 @@
 var express = require('express');
 var app = express();
-var request = require('request');
 var axios = require('axios');
 var keys = require('./keys.js');
 
-//let cors = require('cors');
 app.use(express.json());
 
-const getLatLonFromZip = async zip => {
-    const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=77840&key=${keys.google_key}`);
-    const data = response.data;
-    return {
-        latitude: data.results[0].geometry.location.lat,
-        longitude: data.results[0].geometry.location.lng,
-    };
-};
+const fetchData = async url => {
+    const response = await axios.get(url)
+        .catch(err => { if (err.response) {
+            console.log("Error getting response from " + url);
+        }});
+    console.log(url + ": " + response.status + " " + response.statusText);
+    return response.data;
+}
 
-const getAproposWeather = async (lat, lon) => {
-    const response = await axios.get(`https://api.darksky.net/forecast/${keys.dark_sky_key}/${lat},${lon}`);
-    const data = response.data.currently;
-    return {
-        temperature: data.temperature,
-        windSpeed: data.windSpeed,
-        precipitation: data.precipIntensity,
-        cloudCover: data.cloudCover
+const getLatLonFromZip = async zip => {
+    const data = await fetchData(`https://maps.googleapis.com/maps/api/geocode/json?address=${zip}&key=${keys.google_key}`);
+    if (data.status !== 'ZERO_RESULTS') {
+        return {
+            latitude: data.results[0].geometry.location.lat,
+            longitude: data.results[0].geometry.location.lng,
+        };
+    } else {
+        throw Error("No results for zip");
     }
 };
 
-const getGif = async (message) => {
-    const response = await axios.get(`http://api.giphy.com/v1/gifs/random?tag=${message}&api_key=${keys.giphy_key}&rating=pg-13`)
-    const data = response.data.data.images.original.url;
-    return data;
+const getAproposWeather = async (lat, lon) => {
+    const data = await fetchData(`https://api.darksky.net/forecast/${keys.dark_sky_key}/${lat},${lon}`);
+    const weather = data.currently;
+    return {
+        temperature: weather.temperature,
+        windSpeed: weather.windSpeed,
+        precipitation: weather.precipIntensity,
+        cloudCover: weather.cloudCover
+    }
 };
 
-const generateTerms = async (temp, precipitation, windSpeed, cloudCover) => {
-    console.log("temp: " + temp + " precip: " + precipitation + " wind " + windSpeed + " c " + cloudCover)
-    let messages = ['weather'];
+const getRandomGif = async message => {
+    const data = await fetchData(`http://api.giphy.com/v1/gifs/random?tag=${message}&api_key=${keys.giphy_key}&rating=pg-13`);
+    return data.data.images.original.url;
+};
+
+const getSearchedGif = async message => {
+    const response = await axios.get(`http://api.giphy.com/v1/gifs/search?&api_key=${keys.giphy_key}&q=${message}&limit=1&rating=pg-13&lang=en`)
+    const data = response.data.data[0].images.original.url;
+    return data;
+}
+
+const getTranslatedGif = async message => {
+    const response = await axios.get(`http://api.giphy.com/v1/gifs/translate?&api_key=${keys.giphy_key}&s=${message}&rating=pg-13`)
+    const data = response.data.data.images.original.url;
+    console.log(data);
+    return data;
+}
+
+const generateTerms = async (weatherObj) => {
+    let temp = weatherObj.temperature;
+    let precipitation = weatherObj.precipitation;
+    let windSpeed = weatherObj.windSpeed;
+    let cloudCover = weatherObj.cloudCover;
+
+    console.log("T: " + temp + " P: " + precipitation + " W: " + windSpeed + " C: " + cloudCover)
+    let messages = ['weather', 'temperature'];
     // get temp
     if (temp > 90) {
         messages.push( 'hot');
@@ -71,27 +98,31 @@ const generateTerms = async (temp, precipitation, windSpeed, cloudCover) => {
 };
 
 app.get('/api', async (req, res) => {
-    console.log('GET request received');
-    let imageUrl;
-    let message;
+    const zip = req.query.zip;
+    console.log('GET request received for zip-code ' + zip);
 
     // convert zip code to lat long
-    const { latitude, longitude } = await getLatLonFromZip(77381)
+    const { latitude, longitude } = await getLatLonFromZip(zip).catch(e => { console.log(e); return {latitude: null, longitude: null}});
 
-    // get weather
-    const { temperature, windSpeed, precipitation, cloudCover } = await getAproposWeather(latitude, longitude);
+    // if zip does not match a location, this will be default
+    let image = "https://memegenerator.net/img/instances/65969612/zipcode-boundaries-are-serious-business-only-takes-one-bad-zip-code-to-mess-up-your-day.jpg";
+    // if there is a latitude and longitude, proceed, else don't
+    if (latitude && longitude) {
+        // get weather
+        const weatherObj = await getAproposWeather(latitude, longitude);
 
-    // generate messages
-    const messages = await generateTerms(temperature, windSpeed, precipitation, cloudCover);
-    console.log(messages)
+        // generate messages
+        const messages = await generateTerms(weatherObj);
+        console.log(messages);
 
-    // get image
-    const image = await getGif(messages);
+        // get image
+        image = await getRandomGif(messages);
+        //const image = await getTranslatedGif(messages);
+    }
 
     res.send({data: image});
 });
 
-console.log(__dirname + '/../build');
 app.use('/', express.static(require('path').resolve(__dirname + '/../build')));
 
 app.listen(3001);
