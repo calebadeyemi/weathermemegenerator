@@ -1,7 +1,8 @@
 var express = require('express');
 var app = express();
 var axios = require('axios');
-var keys = require('./keys.js');
+var generateTerms = require('./termGenerator');
+var keys = require('./keys');
 
 app.use(express.json());
 
@@ -26,7 +27,7 @@ const getLatLonFromZip = async zip => {
     }
 };
 
-const getAproposWeather = async (lat, lon) => {
+const getAproposWeatherData = async (lat, lon) => {
     const data = await fetchData(`https://api.darksky.net/forecast/${keys.dark_sky_key}/${lat},${lon}`);
     const weather = data.currently;
     return {
@@ -55,48 +56,6 @@ const getTranslatedGif = async message => {
     return data;
 }
 
-const generateTerms = async (weatherObj) => {
-    let temp = weatherObj.temperature;
-    let precipitation = weatherObj.precipitation;
-    let windSpeed = weatherObj.windSpeed;
-    let cloudCover = weatherObj.cloudCover;
-
-    console.log("T: " + temp + " P: " + precipitation + " W: " + windSpeed + " C: " + cloudCover)
-    let messages = ['weather', 'temperature'];
-    // get temp
-    if (temp > 90) {
-        messages.push( 'hot');
-    } else if (temp > 70) {
-        messages.push( 'warm');
-    } else if (temp > 50) {
-        messages.push( 'cool');
-    } else if (temp > 32) {
-        messages.push( 'cold');
-    } else {
-        messages.push( 'freezing');
-    }
-
-    // precipitation
-    if (precipitation > 2) {
-        if (temp > 32) {
-            messages.push( "raining");
-        } else {
-            messages.push( 'snowing');
-        }
-    }
-
-    // windSpeed
-    if (windSpeed > 10) {
-        messages.push( "windy");
-    }
-
-    if (cloudCover < 0.25) {
-        messages.push( "sunny");
-    }
-
-    return messages.join('+');
-};
-
 app.get('/api', async (req, res) => {
     const zip = req.query.zip;
     console.log('GET request received for zip-code ' + zip);
@@ -109,7 +68,7 @@ app.get('/api', async (req, res) => {
     // if there is a latitude and longitude, proceed, else don't
     if (latitude && longitude) {
         // get weather
-        const weatherObj = await getAproposWeather(latitude, longitude);
+        const weatherObj = await getAproposWeatherData(latitude, longitude);
 
         // generate messages
         const messages = await generateTerms(weatherObj);
